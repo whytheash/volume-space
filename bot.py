@@ -25,17 +25,17 @@ import os
 # users_sheet = client.open("vlmbot-data").worksheet("users_data")
 # results_sheet = client.open("vlmbot-data").worksheet("test_results")    
 
-from flask import Flask
-import os
+# from flask import Flask
+# import os
 
-app = Flask(__name__)
+# app = Flask(__name__)
 
-@app.route('/')
-def home():
-    return "Bot is running"
+# @app.route('/')
+# def home():
+#     return "Bot is running"
 
-if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 3000)))
+# if __name__ == "__main__":
+#     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 3000)))
 
 
 TOKEN = os.environ.get("TELEGRAM_TOKEN")  # Токен на railway
