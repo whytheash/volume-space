@@ -25,7 +25,7 @@ import os
 # users_sheet = client.open("vlmbot-data").worksheet("users_data")
 # results_sheet = client.open("vlmbot-data").worksheet("test_results")    
 
-TOKEN = os.environ.get("7840703084:AAFBrBWX8XjLOfCr63e5WM_W2XkUNAL9KyU")  # <- Вставьте токен здесь
+TOKEN = os.environ.get("TELEGRAM_TOKEN")  # Токен на railway
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
