@@ -10,7 +10,7 @@ from telegram.ext import Updater
 #Подклчение к базе данных
 import os
 import psycopg2
-import datetime
+from datetime import datetime
 from psycopg2.extras import execute_values
 from contextlib import contextmanager
 
