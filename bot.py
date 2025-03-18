@@ -6,7 +6,23 @@ from aiogram.filters import Command
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from telegram.ext import Updater
+
+#Подклчение к базе данных
 import os
+import psycopg2
+import datetime
+from psycopg2.extras import execute_values
+from contextlib import contextmanager
+
+DATABASE_URL = os.environ.get("DATABASE_URL")
+
+@contextmanager
+def db_connection():
+    conn = psycopg2.connect(DATABASE_URL, sslmode="require")
+    try:
+        yield conn
+    finally:
+        conn.close()
 
 # import gspread
 # from google.oauth2.service_account import Credentials
@@ -91,7 +107,7 @@ QUESTIONS = {
         ["A. глаза боятся - а руки делают", "B. распределю часть работы на другие дни", "C. забьюсь в истерике в угол"]
     ),
     TestStates.Q2: (
-        "2. вы решили сделать перерыв с клиентом. \n сколько он продлится?",
+        "2. ты решил сделать перерыв с клиентом. \n сколько он продлится?",
         ["A. 15 минут — хватит с головой", "B. не меньше 30 минут", "C. час, а то и два, нужно же набраться сил"]
     ),
     TestStates.Q3: (
@@ -100,7 +116,7 @@ QUESTIONS = {
     ),
     TestStates.Q4: (
         "4. теперь клиент полностью меняет концепт татуировки в день сеанса",
-        ["A. я за любые идеи, фрихенд - вперед!", "B. не могу так рисковать, предложу альтернативу из свободных эскизов", "C. это не нормально... перенесу сеанс, чтобы успеть подготовить эскиз"]
+        ["A. я за любые идеи, фрихенд - вперед!", "B. предложу альтернативу из свободных эскизов", "C. это не нормально... перенесу сеанс, чтобы успеть подготовить эскиз"]
     ),
     TestStates.Q5: (
         "5. твой клиент начал активно жаловаться на боль, что будем делать?",
@@ -119,11 +135,11 @@ QUESTIONS = {
         ["A. вызову такси, приеду как можно раньше", "B. предупрежу, принесу извинения, предложу скидку", "C. как приду, так и приду"]
     ),
     TestStates.Q9: (
-        "9. до сеанса 15 минут. клиент пишет, что его не будет и просит перенести сеанс. \n что будем делать?",
+        "9. до сеанса 15 минут. клиент пишет, что его не будет и просит перенести сеанс. \nчто будем делать?",
         ["A. обозлюсь, но не подам вида", "B. «освободилось окошко, отдам со скидкой»", "C. больше не буду с ним работать, со мной так нельзя"]
     ),
     TestStates.Q10: (
-        "10. рабочий день близится к концу, ты уже довольно уставший. \n и тут клиент начинает задавать очень много вопросов",
+        "10. рабочий день близится к концу, ты уже довольно уставший. \n и тут клиент начинает задавать очень много вопросов...",
         ["A. объясню все нюансы и успокою", "B. буду задавать много вопросов в ответ", "C. сяду в наушники"]
     ),
     TestStates.Q11: (
@@ -146,18 +162,27 @@ start_message = "привет татуер! на связи волюм! \n\n" \
 @dp.message(Command("start"))
 async def start_test(message: types.Message, state: FSMContext):
 
-    # #Внесение пользователя в БД
-    # user = message.from_user
-    # registration_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    #Внесение пользователя в БД
+    user = message.from_user
+    registration_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-    # # Запись в users_data
-    # users_sheet.append_row([
-    #     user.id,
-    #     user.username if user.username else "N/A",
-    #     user.first_name if user.first_name else "N/A",
-    #     user.last_name if user.last_name else "N/A",
-    #     registration_date
-    # ])
+    # Запись в users_data
+    def save_user(user): 
+        with db_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    INSERT INTO users_data 
+                    (user_id, username, first_name, last_name, registration_date)
+                    VALUES (%s, %s, %s, %s, %s)
+                    ON CONFLICT (user_id) DO NOTHING
+                    """, (
+                        user.id,
+                        user.username,
+                        user.first_name,
+                        user.last_name,
+                        datetime.now()
+                    ))
+                conn.commit()
 
 
     await message.answer(start_message)
@@ -270,14 +295,22 @@ async def calculate_result(message: types.Message, user_id: int):
             best_match = type_name
     
 
-    # # Запись в test_results
-    # test_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    # results_sheet.append_row([
-    #     user_id,
-    #     test_date,
-    #     best_match,
-    #     str(scores)  # Сохраняем баллы в виде JSON-строки
-    # ])
+    # Запись в test_results
+    test_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    def save_test_result(user_id, best_match, scores):
+        with db_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    INSERT INTO test_results 
+                    (user_id, test_date, best_match, scores)
+                    VALUES (%s, %s, %s, %s)
+                    """, (
+                        user_id,
+                        datetime.now(),
+                        best_match,
+                        scores  # scores должен быть словарем
+                    ))
+                conn.commit()
 
 
     await message.answer(
