@@ -129,11 +129,6 @@ start_message = "<b>привет татуер! на связи волюм!</b> \
 "<b>поехали!</b>"
 
 
-
-
-
-@dp.message(Command("start"))
-
 async def on_startup():
     print("🚀 Бот запущен! Инициализация планировщика...")
     try:
@@ -145,6 +140,8 @@ async def on_startup():
     except Exception as e:
         print(f"❌ Ошибка инициализации: {str(e)}")
 
+
+@dp.message(Command("start"))
 async def start_test(message: types.Message, state: FSMContext):
 
     
@@ -368,21 +365,13 @@ async def send_guide(user_id: int):
 
 
 if __name__ == "__main__":
-    # Проверка существования файлов
-    if not os.path.exists("img/master-types-compressed.pdf"):
-        raise FileNotFoundError("PDF guide missing!")
-    
-    # Явный запуск в однопоточном режиме
-    import asyncio
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    
     try:
-        loop.run_until_complete(dp.start_polling(bot))
-    except KeyboardInterrupt:
-        pass
-    finally:
-        loop.close()
+        print("🔄 Запуск бота...")
+        dp.startup.register(on_startup)
+        dp.run_polling(bot)
+    except Exception as e:
+        print(f"⛔ Критическая ошибка: {str(e)}")
+        exit(1)
 
 
     
