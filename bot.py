@@ -10,7 +10,7 @@ from telegram.ext import Updater
 
 
 #Подклчение к базе данных
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from pymongo import MongoClient
 
@@ -304,6 +304,7 @@ async def calculate_result(message: types.Message, user_id: int):
             min_diff = diff
             best_match = type_name
     
+    test_completion_time = datetime.now() + timedelta(minutes=1)
 
     #Результаты в БД
     def save_test_result(user_id, best_match, scores):
@@ -311,8 +312,11 @@ async def calculate_result(message: types.Message, user_id: int):
             "user_id": user_id,
             "test_date": datetime.now(),
             "best_match": best_match,
-            "scores": scores
+            "scores": scores,
+            "guide_sent": False,
+            "test_completion_time": test_completion_time
         }
+        upsert=True
         results_collection.insert_one(test_data)
 
     save_test_result(user_id, best_match, scores)
@@ -336,4 +340,70 @@ async def calculate_result(message: types.Message, user_id: int):
     del user_data[user_id]
 
 if __name__ == "__main__":
+    dp.run_polling(bot)
+
+
+
+
+
+
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
+scheduler = AsyncIOScheduler()
+scheduler.start()
+
+async def check_pending_guides():
+    # Находим пользователей, у которых истекло время ожидания
+    users = results_collection.find({
+        "guide_sent": False,
+        "test_completion_time": {"$lte": datetime.now()}
+    })
+    
+    for user in users:
+        try:
+            # Отправляем PDF
+            await send_guide(user["user_id"])
+            
+            # Помечаем как отправленное
+            results_collection.update_one(
+                {"_id": user["_id"]},
+                {"$set": {"guide_sent": True}}
+            )
+        except Exception as e:
+            print(f"Ошибка отправки гайда для {user['user_id']}: {e}")
+
+# Запускаем проверку каждую минуту
+scheduler.add_job(check_pending_guides, "interval", minutes=1)
+
+#Обработчик при блокировке бота пользователем
+from aiogram.exceptions import TelegramUnauthorizedError
+
+async def send_guide(user_id: int):
+    # Получаем пользователя из БД
+    user = users_collection.find_one({"user_id": user_id})
+    try:
+        await bot.send_document(
+        chat_id=user_id,
+        document=types.FSInputFile("img/master-types-compressed.pdf"),
+        caption=f"{user['first_name']}, спасибо за прохождение теста!\n\n"
+        "дарим тебе гайд со всеми, собранными нами, типами тату-мастеров с рекомендациями по личному росту!",
+        parse_mode="HTML"
+        )
+    except Exception as e:
+        print(f"Ошибка отправки гайда для {user_id}: {e}")
+    
+    except TelegramUnauthorizedError:
+        print(f"Пользователь {user_id} заблокировал бота")
+        results_collection.update_one(
+            {"user_id": user_id},
+            {"$set": {"guide_sent": True}}  # Помечаем, чтобы не повторять
+        )
+    
+
+
+async def on_startup(dp):
+    await check_pending_guides()
+
+if __name__ == "__main__":
+    dp.startup.register(on_startup)
     dp.run_polling(bot)
