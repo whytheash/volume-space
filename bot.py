@@ -323,9 +323,9 @@ async def calculate_result(message: types.Message, user_id: int):
     await bot.send_photo(
         chat_id=message.chat.id,
         photo=typepicture,
-        caption=f"<b>Ваш тип: {best_match}!\n\n{DESCRIPTIONS[best_match]}</b>\n\n"
+        caption=f"<b>Ваш тип: {best_match}!</b>\n\n{DESCRIPTIONS[best_match]}\n\n"
         f"если у тебя есть комментарии или пожелания оставь их тут @vlmsupport \n\n"
-        f"<b>чтобы пройти тест заново, нажмите /start</b>",
+        f"<b>чтобы пройти тест заново,\nнажмите /start</b>",
         parse_mode="HTML"
     )
     # await message.answer(
