@@ -8,21 +8,16 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 from telegram.ext import Updater
 
 #Подклчение к базе данных
-import os
-import psycopg2
 from datetime import datetime
-from psycopg2.extras import execute_values
-from contextlib import contextmanager
 
-DATABASE_URL = os.environ.get("DATABASE_URL")
+from pymongo import MongoClient
 
-@contextmanager
-def db_connection():
-    conn = psycopg2.connect(DATABASE_URL, sslmode="require")
-    try:
-        yield conn
-    finally:
-        conn.close()
+# Подключение к MongoDB
+MONGODB_URI = os.environ.get("MONGO_URI")
+client = MongoClient(MONGODB_URI)
+db = client["volume-space"]  # Название базы
+users_collection = db["users_data"]  # Коллекция для пользователей
+results_collection = db["test_results"]  # Коллекция для результатов
 
 # import gspread
 # from google.oauth2.service_account import Credentials
@@ -166,24 +161,21 @@ async def start_test(message: types.Message, state: FSMContext):
     user = message.from_user
     registration_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-    # Запись в users_data
-    def save_user(user): 
-        with db_connection() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute("""
-                    INSERT INTO users_data 
-                    (user_id, username, first_name, last_name, registration_date)
-                    VALUES (%s, %s, %s, %s, %s)
-                    ON CONFLICT (user_id) DO NOTHING
-                    """, (
-                        user.id,
-                        user.username,
-                        user.first_name,
-                        user.last_name,
-                        datetime.now()
-                    ))
-                conn.commit()
+    def save_user(user):
+        user_data = {
+            "user_id": user.id,
+            "username": user.username,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "registration_date": datetime.now()
+        }
+        users_collection.update_one(
+            {"user_id": user.id},
+            {"$setOnInsert": user_data},
+            upsert=True
+        )
 
+    save_user(user)
 
     await message.answer(start_message)
     await state.set_state(TestStates.Q1)
@@ -295,23 +287,17 @@ async def calculate_result(message: types.Message, user_id: int):
             best_match = type_name
     
 
-    # Запись в test_results
-    test_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    #Результаты в БД
     def save_test_result(user_id, best_match, scores):
-        with db_connection() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute("""
-                    INSERT INTO test_results 
-                    (user_id, test_date, best_match, scores)
-                    VALUES (%s, %s, %s, %s)
-                    """, (
-                        user_id,
-                        datetime.now(),
-                        best_match,
-                        scores  # scores должен быть словарем
-                    ))
-                conn.commit()
+        test_data = {
+            "user_id": user_id,
+            "test_date": datetime.now(),
+            "best_match": best_match,
+            "scores": scores
+        }
+        results_collection.insert_one(test_data)
 
+    save_test_result(user_id, best_match, scores)
 
     await message.answer(
         f"Ваш тип: {best_match}!\n\n{DESCRIPTIONS[best_match]}\n\n"
