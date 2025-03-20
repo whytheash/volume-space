@@ -129,6 +129,11 @@ start_message = "<b>привет татуер! на связи волюм!</b> \
 "<b>поехали!</b>"
 
 
+
+
+
+@dp.message(Command("start"))
+
 async def on_startup():
     print("🚀 Бот запущен! Инициализация планировщика...")
     try:
@@ -140,8 +145,6 @@ async def on_startup():
     except Exception as e:
         print(f"❌ Ошибка инициализации: {str(e)}")
 
-
-@dp.message(Command("start"))
 async def start_test(message: types.Message, state: FSMContext):
 
     
