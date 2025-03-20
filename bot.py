@@ -1,21 +1,22 @@
 import os
+from datetime import datetime, timedelta
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.filters import Command
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.types import FSInputFile
-
-from telegram.ext import Updater
-
-
-#Обработчик состояний
+from motor.motor_asyncio import AsyncIOMotorClient
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-
-#Подклчение к базе данных
+from aiogram.exceptions import TelegramUnauthorizedError
+from telegram.ext import Updater
 from datetime import datetime, timedelta
 
-from motor.motor_asyncio import AsyncIOMotorClient
+# Инициализация бота и диспетчера
+TOKEN = os.environ.get("TELEGRAM_TOKEN")
+bot = Bot(token=TOKEN)
+dp = Dispatcher()
+
 
 # Подключение к MongoDB
 MONGODB_URI = os.environ.get("MONGO_URL")
@@ -24,40 +25,9 @@ db = client["volume-space"]
 users_collection = db["users_data"]
 results_collection = db["test_results"]
 
-# import gspread
-# from google.oauth2.service_account import Credentials
+# Инициализация планировщика
+scheduler = AsyncIOScheduler()
 
-# from datetime import datetime
-
-# # Авторизация в Google Sheets
-# scope = [
-#     "https://www.googleapis.com/auth/spreadsheets",  # Доступ к таблицам
-#     "https://www.googleapis.com/auth/drive"          # Доступ к Google Drive
-# ]
-# creds = Credentials.from_service_account_file("credentials.json", scopes=scope)
-# client = gspread.authorize(creds)
-
-# Открытие таблиц
-# users_sheet = client.open("vlmbot-data").worksheet("users_data")
-# results_sheet = client.open("vlmbot-data").worksheet("test_results")    
-
-# from flask import Flask
-# import os
-
-# app = Flask(__name__)
-
-# @app.route('/')
-# def home():
-#     return "Bot is running"
-
-# if __name__ == "__main__":
-#     app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 3000)))
-
-
-TOKEN = os.environ.get("TELEGRAM_TOKEN")  # Токен на railway
-
-bot = Bot(token=TOKEN)
-dp = Dispatcher()
 
 TYPES = {
     "Чилл гай": {"Выносливость": 1, "Креативность": 7, "Гибкость": 6, "Ответственность": 2, "Стрессоустойчивость": 1, "Клиенты в день": 1, "Рабочие дни": 1},
@@ -159,35 +129,30 @@ start_message = "<b>привет татуер! на связи волюм!</b> \
 "<b>поехали!</b>"
 
 
-async def on_startup(dp):
-    scheduler = AsyncIOScheduler()
+async def on_startup():
+    # Явный запуск планировщика после старта event loop
     scheduler.start()
-    scheduler.add_job(check_pending_guides, "interval", minutes=1)
     await check_pending_guides()
 
 
 @dp.message(Command("start"))
 async def start_test(message: types.Message, state: FSMContext):
 
-    #Внесение пользователя в БД
-    user = message.from_user
-    registration_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-    def save_user(user):
-        user_data = {
-            "user_id": user.id,
-            "username": user.username,
-            "first_name": user.first_name,
-            "last_name": user.last_name,
-            "registration_date": datetime.now()
-        }
-        users_collection.update_one(
-            {"user_id": user.id},
-            {"$setOnInsert": user_data},
-            upsert=True
-        )
-
-    save_user(user)
+    #Асинхронное сохранение пользователя
+    user = message.from_user
+    user_data = {
+        "user_id": user.id,
+        "username": user.username,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "registration_date": datetime.now()
+    }
+    await users_collection.update_one(
+        {"user_id": user.id},
+        {"$setOnInsert": user_data},
+        upsert=True
+    )
 
 
     #Добавление изображения
@@ -340,22 +305,17 @@ async def calculate_result(message: types.Message, user_id: int):
         f"<b>чтобы пройти тест заново,\nнажмите /start</b>",
         parse_mode="HTML"
     )
-    # await message.answer(
-    #     "Ваш тип: {best_match}!\n\n{DESCRIPTIONS[best_match]}\n\n"
-    #     "если у тебя есть комментарии или пожелания оставь их тут @vlmsupport \n\n"
-    #     "чтобы пройти тест заново, нажмите /start"
-    # )
-    del user_data[user_id]
 
 
 async def check_pending_guides():
     try:
-        cursor = results_collection.find({
+        # Асинхронный агрегат с преобразованием ObjectId
+        pipeline = [{"$match": {
             "guide_sent": False,
             "test_completion_time": {"$lte": datetime.now()}
-        })
+        }}]
         
-        async for user in cursor:
+        async for user in results_collection.aggregate(pipeline):
             try:
                 await send_guide(user["user_id"])
                 await results_collection.update_one(
@@ -367,19 +327,35 @@ async def check_pending_guides():
     except Exception as e:
         print(f"Ошибка в check_pending_guides: {str(e)}")
 
-#Обработчик при блокировке бота пользователем
-from aiogram.exceptions import TelegramUnauthorizedError
-
 async def send_guide(user_id: int):
     try:
-        file_path = os.path.join("img", "master-types-compressed.pdf")
+        file_path = os.path.abspath(os.path.join("img", "master-types-compressed.pdf"))
         if not os.path.exists(file_path):
-            raise FileNotFoundError(f"Файл {file_path} не найден!")
-        
-        await bot.send_document(...)
+            raise FileNotFoundError(f"PDF не найден: {file_path}")
+            
+        await bot.send_document(
+            chat_id=user_id,
+            document=FSInputFile(file_path),
+            caption=f"Спасибо за прохождение теста! Ваш гайд готов!",
+            parse_mode="HTML"
+        )
+    except TelegramUnauthorizedError:
+        print(f"Пользователь {user_id} заблокировал бота")
     except Exception as e:
-        print(f"Ошибка отправки гайда: {str(e)}")
-    
+        print(f"Ошибка отправки: {str(e)}")
+
+
+    del user_data[user_id]
+
 if __name__ == "__main__":
+    # Регистрация обработчика старта
     dp.startup.register(on_startup)
+    
+    # Проверка существования файла перед запуском
+    if not os.path.exists("img/master-types-compressed.pdf"):
+        raise RuntimeError("PDF файл не найден!")
+    
     dp.run_polling(bot)
+
+
+    
