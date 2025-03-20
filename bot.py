@@ -288,7 +288,7 @@ async def calculate_result(message: types.Message, user_id: int):
         del filtered_types["Ночная бабочка"]
     
     # Взвешенное сравнение
-    weights = {"Выносливость": 1.0, "Стрессоустойчивость": 1.0, "Креативность": 1.0, "Гибкость": 1.0, "Ответственность": 1.0}
+    weights = {"Выносливость": 2, "Стрессоустойчивость": 2, "Креативность": 2, "Гибкость": 2, "Ответственность": 2}
     best_match = None
     min_diff = float('inf')
     
@@ -297,8 +297,8 @@ async def calculate_result(message: types.Message, user_id: int):
             abs(scores[k] - params[k]) * weights.get(k, 1)
             for k in ["Выносливость", "Креативность", "Гибкость", "Ответственность", "Стрессоустойчивость"]
         )
-        diff += abs(scores["Клиенты в день"] - params["Клиенты в день"]) * 1
-        diff += abs(scores["Рабочие дни"] - params["Рабочие дни"]) * 1
+        diff += abs(scores["Клиенты в день"] - params["Клиенты в день"]) * 0.5
+        diff += abs(scores["Рабочие дни"] - params["Рабочие дни"]) * 0.5
         
         if diff < min_diff:
             min_diff = diff
