@@ -345,8 +345,6 @@ async def send_guide(user_id: int):
         print(f"Ошибка отправки: {str(e)}")
 
 
-    del user_data[user_id]
-
 if __name__ == "__main__":
     # Регистрация обработчика старта
     dp.startup.register(on_startup)
