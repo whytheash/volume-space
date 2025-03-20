@@ -345,14 +345,14 @@ async def check_pending_guides():
 
 async def send_guide(user_id: int):
     try:
-        file_path = os.path.abspath(os.path.join("img", "master-types-compressed.pdf"))
+        file_path = os.path.abspath(os.path.join("img", "11-masters-guide.pdf"))
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"PDF не найден: {file_path}")
             
         await bot.send_document(
             chat_id=user_id,
             document=FSInputFile(file_path),
-            caption=f"Спасибо за прохождение теста! Ваш гайд готов!",
+            caption=f"спасибо за прохождение теста!\n\nтебе подарок: гайд с возможностями для роста среди всех типов тату мастеров.",
             parse_mode="HTML"
         )
     except TelegramUnauthorizedError:
