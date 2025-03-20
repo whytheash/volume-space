@@ -9,6 +9,12 @@ from aiogram.types import FSInputFile
 from telegram.ext import Updater
 
 
+#Обработчик состояний
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
+scheduler = AsyncIOScheduler()
+scheduler.start()
+
 #Подклчение к базе данных
 from datetime import datetime, timedelta
 
@@ -154,6 +160,10 @@ start_message = "<b>привет татуер! на связи волюм!</b> \
 "мы проделали большой путь вместе с командой, чтобы в итоге этот тест вышел в свет. <b>надеемся, что он тебе понравится, а может даже вдохновит на что-то новое!</b> \n\n<b>результаты могут помочь понять в каком направлении развиваться, даже если сейчас ты новичок или вовсе не знаком с индустрией.</b>\n\n" \
 "хотим напомнить: этот тест создан <b>исключительно в целях развлечения и самопознания</b>. он примерно определяет тип по твоим действиям в тату-индустрии и позволяет посмотреть на свое искусство по-новому,\nно не является профессиональной оценкой или руководством к действию. \n\n" \
 "<b>поехали!</b>"
+
+
+async def on_startup(dp):
+    await check_pending_guides()
 
 
 @dp.message(Command("start"))
@@ -340,19 +350,13 @@ async def calculate_result(message: types.Message, user_id: int):
     del user_data[user_id]
 
 if __name__ == "__main__":
+    scheduler.start()
+    dp.startup.register(on_startup)
     dp.run_polling(bot)
 
 
-
-
-
-
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-
-scheduler = AsyncIOScheduler()
-scheduler.start()
-
 async def check_pending_guides():
+    
     # Находим пользователей, у которых истекло время ожидания
     users = results_collection.find({
         "guide_sent": False,
@@ -389,9 +393,6 @@ async def send_guide(user_id: int):
         "дарим тебе гайд со всеми, собранными нами, типами тату-мастеров с рекомендациями по личному росту!",
         parse_mode="HTML"
         )
-    except Exception as e:
-        print(f"Ошибка отправки гайда для {user_id}: {e}")
-    
     except TelegramUnauthorizedError:
         print(f"Пользователь {user_id} заблокировал бота")
         results_collection.update_one(
@@ -401,9 +402,3 @@ async def send_guide(user_id: int):
     
 
 
-async def on_startup(dp):
-    await check_pending_guides()
-
-if __name__ == "__main__":
-    dp.startup.register(on_startup)
-    dp.run_polling(bot)
