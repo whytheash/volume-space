@@ -13,7 +13,7 @@ from datetime import datetime
 from pymongo import MongoClient
 
 # Подключение к MongoDB
-MONGODB_URI = os.environ.get("MONGO_URI")
+MONGODB_URI = os.environ.get("MONGO_URL")
 client = MongoClient(MONGODB_URI)
 db = client["volume-space"]  # Название базы
 users_collection = db["users_data"]  # Коллекция для пользователей
