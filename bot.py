@@ -346,14 +346,21 @@ async def send_guide(user_id: int):
 
 
 if __name__ == "__main__":
-    # Регистрация обработчика старта
-    dp.startup.register(on_startup)
-    
-    # Проверка существования файла перед запуском
+    # Проверка существования файлов
     if not os.path.exists("img/master-types-compressed.pdf"):
-        raise RuntimeError("PDF файл не найден!")
+        raise FileNotFoundError("PDF guide missing!")
     
-    dp.run_polling(bot)
+    # Явный запуск в однопоточном режиме
+    import asyncio
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    
+    try:
+        loop.run_until_complete(dp.start_polling(bot))
+    except KeyboardInterrupt:
+        pass
+    finally:
+        loop.close()
 
 
     
