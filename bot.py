@@ -317,11 +317,22 @@ async def calculate_result(message: types.Message, user_id: int):
 
     save_test_result(user_id, best_match, scores)
 
-    await message.answer(
-        f"Ваш тип: {best_match}!\n\n{DESCRIPTIONS[best_match]}\n\n"
+    #Поиск фото по типу
+    typepicture = FSInputFile("img/{best_match}.jpg")
+
+    await bot.send_photo(
+        chat_id=message.chat.id,
+        photo=typepicture,
+        caption="<b>Ваш тип: {best_match}!\n\n{DESCRIPTIONS[best_match]}</b>\n\n"
         "если у тебя есть комментарии или пожелания оставь их тут @vlmsupport \n\n"
-        "чтобы пройти тест заново, нажмите /start"
+        "<b>чтобы пройти тест заново, нажмите /start</b>",
+        parse_mode="HTML"
     )
+    # await message.answer(
+    #     "Ваш тип: {best_match}!\n\n{DESCRIPTIONS[best_match]}\n\n"
+    #     "если у тебя есть комментарии или пожелания оставь их тут @vlmsupport \n\n"
+    #     "чтобы пройти тест заново, нажмите /start"
+    # )
     del user_data[user_id]
 
 if __name__ == "__main__":
