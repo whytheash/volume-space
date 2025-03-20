@@ -318,14 +318,14 @@ async def calculate_result(message: types.Message, user_id: int):
     save_test_result(user_id, best_match, scores)
 
     #Поиск фото по типу
-    typepicture = FSInputFile("img/{best_match}.jpg")
+    typepicture = FSInputFile(f"img/{best_match}.jpg")
 
     await bot.send_photo(
         chat_id=message.chat.id,
         photo=typepicture,
-        caption="<b>Ваш тип: {best_match}!\n\n{DESCRIPTIONS[best_match]}</b>\n\n"
-        "если у тебя есть комментарии или пожелания оставь их тут @vlmsupport \n\n"
-        "<b>чтобы пройти тест заново, нажмите /start</b>",
+        caption=f"<b>Ваш тип: {best_match}!\n\n{DESCRIPTIONS[best_match]}</b>\n\n"
+        f"если у тебя есть комментарии или пожелания оставь их тут @vlmsupport \n\n"
+        f"<b>чтобы пройти тест заново, нажмите /start</b>",
         parse_mode="HTML"
     )
     # await message.answer(
