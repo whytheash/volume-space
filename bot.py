@@ -10,7 +10,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from aiogram.exceptions import TelegramUnauthorizedError
 from telegram.ext import Updater
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 # Инициализация бота и диспетчера
 TOKEN = os.environ.get("TELEGRAM_TOKEN")
@@ -130,9 +130,15 @@ start_message = "<b>привет татуер! на связи волюм!</b> \
 
 
 async def on_startup():
-    # Явный запуск планировщика после старта event loop
-    scheduler.start()
-    await check_pending_guides()
+    print("🚀 Бот запущен! Инициализация планировщика...")
+    try:
+        scheduler.start()
+        print("✅ Планировщик запущен")
+        scheduler.add_job(check_pending_guides, "interval", minutes=1)
+        print("✅ Задача check_pending_guides добавлена")
+        await check_pending_guides()
+    except Exception as e:
+        print(f"❌ Ошибка инициализации: {str(e)}")
 
 
 @dp.message(Command("start"))
@@ -279,7 +285,7 @@ async def calculate_result(message: types.Message, user_id: int):
             min_diff = diff
             best_match = type_name
     
-    test_completion_time = datetime.now() + timedelta(minutes=1)
+    test_completion_time = datetime.now(timezone.utc) + timedelta(minutes=1)
 
     #Результаты в БД
     test_data = {
@@ -306,26 +312,36 @@ async def calculate_result(message: types.Message, user_id: int):
         parse_mode="HTML"
     )
 
+    print(f"💾 Сохранение результатов для {user_id}:")
+    print(f"⏱ Время отправки гайда: {test_completion_time}")
+    print(f"📊 Результат: {best_match}")
+
 
 async def check_pending_guides():
+    print(f"🔍 Проверка задач в {datetime.now()}")
     try:
-        # Асинхронный агрегат с преобразованием ObjectId
-        pipeline = [{"$match": {
+        cursor = results_collection.find({
             "guide_sent": False,
             "test_completion_time": {"$lte": datetime.now()}
-        }}]
+        })
         
-        async for user in results_collection.aggregate(pipeline):
+        count = 0
+        async for user in cursor:
+            count += 1
+            print(f"📦 Найден пользователь для отправки: {user['user_id']}")
             try:
                 await send_guide(user["user_id"])
                 await results_collection.update_one(
                     {"_id": user["_id"]},
                     {"$set": {"guide_sent": True}}
                 )
+                print(f"✅ Гайд отправлен {user['user_id']}")
             except Exception as e:
-                print(f"Ошибка: {str(e)}")
+                print(f"❌ Ошибка отправки: {str(e)}")
+        
+        print(f"📊 Всего обработано: {count} пользователей")
     except Exception as e:
-        print(f"Ошибка в check_pending_guides: {str(e)}")
+        print(f"🔥 Критическая ошибка: {str(e)}")
 
 async def send_guide(user_id: int):
     try:
@@ -343,6 +359,9 @@ async def send_guide(user_id: int):
         print(f"Пользователь {user_id} заблокировал бота")
     except Exception as e:
         print(f"Ошибка отправки: {str(e)}")
+
+    print(f"📄 Путь к файлу: {os.path.abspath(file_path)}")
+    print(f"🔒 Файл существует: {os.path.exists(file_path)}")
 
 
 if __name__ == "__main__":
