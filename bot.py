@@ -194,7 +194,7 @@ async def handle_button(callback: types.CallbackQuery, state: FSMContext):
     text, buttons = QUESTIONS[current_state]
     chosen_answer = next(btn for btn in buttons if btn.startswith(callback.data))
     await callback.message.edit_text(
-        text=f"{text}\n\n Ваш выбор: {chosen_answer.split('. ', 1)[1]}",
+        text=f"{text}\n\n твой выбор: {chosen_answer.split('. ', 1)[1]}",
         reply_markup=None
     )
     
@@ -306,8 +306,9 @@ async def calculate_result(message: types.Message, user_id: int):
     await bot.send_photo(
         chat_id=message.chat.id,
         photo=typepicture,
-        caption=f"<b>Ваш тип: {best_match}!</b>\n\n{DESCRIPTIONS[best_match]}\n\n"
+        caption=f"<b>твой тип: {best_match}!</b>\n\n{DESCRIPTIONS[best_match]}\n\n"
         f"если у тебя есть комментарии или пожелания, оставь их тут @vlmsupport \n\n"
+        f"а также подписывайся на мой тг-канал: @byvolume\n\n"
         f"<b>чтобы пройти тест заново,\nнажмите /start</b>",
         parse_mode="HTML"
     )
@@ -352,7 +353,7 @@ async def send_guide(user_id: int):
         await bot.send_document(
             chat_id=user_id,
             document=FSInputFile(file_path),
-            caption=f"спасибо за прохождение теста!\n\nтебе подарок: гайд с возможностями для роста среди всех типов тату мастеров.",
+            caption=f"<b>спасибо за прохождение теста!</b>\n\n<b>тебе подарок:</b> гайд с возможностями для роста среди всех типов тату мастеров.",
             parse_mode="HTML"
         )
     except TelegramUnauthorizedError:
